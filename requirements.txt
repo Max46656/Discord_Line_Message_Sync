@@ -1,0 +1,5 @@
+line_bot_sdk==3.16.1
+discord.py==2.5.2
+fastapi==0.115.11
+PyYAML==6.0.2
+uvicorn==0.34.0
