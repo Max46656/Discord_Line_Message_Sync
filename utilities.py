@@ -159,6 +159,7 @@ def generate_binding_code(line_group_id: str, line_group_name: str) -> int:
     update_json('binding_codes.json', data)
     return binding_code
 
+
 def remove_binding_code(binding_code: int):
     """Remove binding code from binding_codes.json.
 

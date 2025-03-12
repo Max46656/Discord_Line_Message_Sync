@@ -4,8 +4,8 @@ import uvicorn
 
 import utilities as utils
 from cache import sync_channels_cache
-from line_bot import app as fastapi_app
 from discord_bot import client, on_ready, about, help, link, unlink
+from line_bot import app as fastapi_app
 
 config = utils.read_config()
 
@@ -27,6 +27,7 @@ async def run_discord_bot():
                         description="此指令用來解除與Line群組的綁定, 並取消連動備份")(unlink)
 
     await client.start(config.get('discord_bot_token'))
+
 
 async def main():
     # Initialize the cache

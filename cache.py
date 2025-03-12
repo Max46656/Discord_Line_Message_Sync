@@ -51,6 +51,17 @@ class SyncChannelsCache:
             return None
         return self.cache[sub_num]
 
+    def get_info_by_line_group_id(self, line_group_id: str) -> Optional[Dict[str, Any]]:
+        """Get sync channel information by LINE group ID.
+
+        :param str line_group_id: The LINE group ID to look up.
+        :return: Dict with sync channel information or None if not found.
+        """
+        sub_num = self.line_group_ids.get(line_group_id)
+        if sub_num is None:
+            return None
+        return self.cache[sub_num]
+
     def add_sync_channel(self, sub_num: int, folder_name: str, line_group_id: str,
                          line_group_name: str, discord_channel_id: int, discord_channel_name: str,
                          discord_channel_webhook: str):

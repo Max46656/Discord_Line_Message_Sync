@@ -1,5 +1,9 @@
+import datetime
+import os
+
+import requests
 import uvicorn
-from discord import SyncWebhook
+from discord import SyncWebhook, File
 from fastapi import FastAPI
 from fastapi import Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,7 +11,8 @@ from linebot.v3 import WebhookHandler
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, TextMessage, \
     ReplyMessageRequest, TemplateMessage, ConfirmTemplate, MessageAction, PushMessageRequest
-from linebot.v3.webhooks import MessageEvent, TextMessageContent
+from linebot.v3.webhooks import MessageEvent, TextMessageContent, ImageMessageContent, \
+    VideoMessageContent, AudioMessageContent
 from pydantic import StrictStr
 
 import utilities as utils
@@ -63,8 +68,8 @@ def handle_message(event):
 
         # Sync message to Discord
         if group_id in sync_channels_cache.line_group_ids:
-            dc_channel_webhook = sync_channels_cache.get_dc_webhook_by_line_group_id(group_id)
             author = line_bot_api.get_group_member_profile(group_id, event.source.user_id)
+            dc_channel_webhook = sync_channels_cache.get_dc_webhook_by_line_group_id(group_id)
             discord_webhook = SyncWebhook.from_url(dc_channel_webhook)
             discord_webhook.send(message_received, username=f"{author.display_name} - (Line訊息)",
                                  avatar_url=author.picture_url)
@@ -105,6 +110,60 @@ def handle_message(event):
             reply_token=event.reply_token, messages=[reply_message]))
 
 
+@handler.add(MessageEvent, message=ImageMessageContent)
+def handle_image_message(event):
+    with ApiClient(configuration) as api_client:
+        if event.source.type == 'user':  # Exclude user messages, only process group messages
+            return
+        line_bot_api = MessagingApi(api_client)
+        group_id = event.source.group_id
+        if group_id in sync_channels_cache.line_group_ids:
+            subscribed_info = sync_channels_cache.get_info_by_line_group_id(group_id)
+            author = line_bot_api.get_group_member_profile(group_id, event.source.user_id)
+            file_path = download_content(event.message.id, subscribed_info['folder_name'],
+                                         'image')
+            discord_webhook = SyncWebhook.from_url(subscribed_info['discord_channel_webhook'])
+            discord_webhook.send(file=File(file_path),
+                                 username=f"{author.display_name} - (Line訊息)",
+                                 avatar_url=author.picture_url)
+
+
+@handler.add(MessageEvent, message=VideoMessageContent)
+def handle_video_message(event):
+    with ApiClient(configuration) as api_client:
+        if event.source.type == 'user':  # Exclude user messages, only process group messages
+            return
+        line_bot_api = MessagingApi(api_client)
+        group_id = event.source.group_id
+        if group_id in sync_channels_cache.line_group_ids:
+            subscribed_info = sync_channels_cache.get_info_by_line_group_id(group_id)
+            author = line_bot_api.get_group_member_profile(group_id, event.source.user_id)
+            file_path = download_content(event.message.id, subscribed_info['folder_name'],
+                                         'video')
+            discord_webhook = SyncWebhook.from_url(subscribed_info['discord_channel_webhook'])
+            discord_webhook.send(file=File(file_path),
+                                 username=f"{author.display_name} - (Line訊息)",
+                                 avatar_url=author.picture_url)
+
+
+@handler.add(MessageEvent, message=AudioMessageContent)
+def handle_video_message(event):
+    with ApiClient(configuration) as api_client:
+        if event.source.type == 'user':  # Exclude user messages, only process group messages
+            return
+        line_bot_api = MessagingApi(api_client)
+        group_id = event.source.group_id
+        if group_id in sync_channels_cache.line_group_ids:
+            subscribed_info = sync_channels_cache.get_info_by_line_group_id(group_id)
+            author = line_bot_api.get_group_member_profile(group_id, event.source.user_id)
+            file_path = download_content(event.message.id, subscribed_info['folder_name'],
+                                         'audio')
+            discord_webhook = SyncWebhook.from_url(subscribed_info['discord_channel_webhook'])
+            discord_webhook.send(file=File(file_path),
+                                 username=f"{author.display_name} - (Line訊息)",
+                                 avatar_url=author.picture_url)
+
+
 def push_message(line_group_id: str, message: str):
     """Push a message to the specified LINE group.
 
@@ -115,6 +174,33 @@ def push_message(line_group_id: str, message: str):
         line_bot_api = MessagingApi(api_client)
         line_bot_api.push_message(PushMessageRequest(
             to=line_group_id, messages=[TextMessage(text=message)]))
+
+
+def download_content(message_id: str, folder_name: str, content_type: str) -> str:
+    """Download content from LINE.
+
+    :param str message_id: Message ID from LINE.
+    :param str folder_name: The name of the folder you want to save files at.
+    :param str content_type: File type, image, video, or audio.
+    :return str: The path of the downloaded file.
+    """
+    type_map = {
+        'image': 'jpg',
+        'video': 'mp4',
+        'audio': 'm4a',
+    }
+
+    headers = {"Authorization": f"Bearer {config['line_channel_access_token']}"}
+    url = f"https://api-data.line.me/v2/bot/message/{message_id}/content"
+    response = requests.get(url, headers=headers)
+    download_path = f"./downloads/{folder_name}/"
+    if not os.path.exists(download_path):
+        os.makedirs(download_path)
+    file_name = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')}.{type_map[content_type]}"
+    with open(f"{download_path}{file_name}", 'wb') as fd:
+        for chunk in response.iter_content():
+            fd.write(chunk)
+    return f"{download_path}{file_name}"
 
 
 if __name__ == '__main__':
