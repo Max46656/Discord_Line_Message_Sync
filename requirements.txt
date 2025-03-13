@@ -6,3 +6,4 @@ uvicorn==0.34.0
 line-bot-sdk~=3.16.1
 pydantic~=2.10.6
 requests~=2.32.3
+apnggif~=0.1.4

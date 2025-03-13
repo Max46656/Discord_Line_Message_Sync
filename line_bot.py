@@ -12,9 +12,10 @@ from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, TextMessage, \
     ReplyMessageRequest, TemplateMessage, ConfirmTemplate, MessageAction, PushMessageRequest
 from linebot.v3.webhooks import MessageEvent, TextMessageContent, ImageMessageContent, \
-    VideoMessageContent, AudioMessageContent
+    VideoMessageContent, AudioMessageContent, StickerMessageContent
 from pydantic import StrictStr
 
+import line_sticker_downloader
 import utilities as utils
 from cache import sync_channels_cache
 
@@ -110,6 +111,28 @@ def handle_message(event):
             reply_token=event.reply_token, messages=[reply_message]))
 
 
+@handler.add(MessageEvent, message=StickerMessageContent)
+def handle_sticker_message(event):
+    with ApiClient(configuration) as api_client:
+        if event.source.type == 'user':  # Exclude user messages, only process group messages
+            return
+        line_bot_api = MessagingApi(api_client)
+        group_id = event.source.group_id
+
+        if group_id in sync_channels_cache.line_group_ids:
+            subscribed_info = sync_channels_cache.get_info_by_line_group_id(group_id)
+            author = line_bot_api.get_group_member_profile(group_id, event.source.user_id)
+            is_animated = True if event.message.sticker_resource_type == 'ANIMATION' else False
+            sticker_file = get_sticker_file(event.message.package_id, event.message.sticker_id,
+                                            is_animated)
+            if not sticker_file:
+                return
+            discord_webhook = SyncWebhook.from_url(subscribed_info['discord_channel_webhook'])
+            discord_webhook.send(file=File(sticker_file),
+                                 username=f"{author.display_name} - (Line訊息)",
+                                 avatar_url=author.picture_url)
+
+
 @handler.add(MessageEvent, message=ImageMessageContent)
 def handle_image_message(event):
     with ApiClient(configuration) as api_client:
@@ -201,6 +224,45 @@ def download_content(message_id: str, folder_name: str, content_type: str) -> st
         for chunk in response.iter_content():
             fd.write(chunk)
     return f"{download_path}{file_name}"
+
+
+def get_sticker_file(sticker_package_id: int, single_sticker_id: int,
+                     is_animation: bool) -> str | None:
+    """Get the sticker file path.
+
+    :param int sticker_package_id: Sticker package ID.
+    :param int single_sticker_id: Sticker ID.
+    :param bool is_animation: Whether the sticker is animation.
+    :return str: The path of the sticker file. None if failed.
+    """
+    base_dir = "./downloads/stickers"
+    if not os.path.exists(base_dir):
+        os.makedirs(base_dir, exist_ok=True)
+
+    package_exists = False
+    sticker_package_dir = None
+    for folder_name in os.listdir(base_dir):
+        if os.path.isdir(os.path.join(base_dir, folder_name)) and folder_name.startswith(
+                f"{sticker_package_id}_"):
+            package_exists = True
+            sticker_package_dir = os.path.join(base_dir, folder_name)
+            break
+    if not package_exists:
+        sticker_package_dir = line_sticker_downloader.download(sticker_package_id)
+
+    for file_name in os.listdir(sticker_package_dir):
+        if is_animation:
+            if file_name.startswith(f"{single_sticker_id}.gif"):
+                sticker_path = os.path.join(sticker_package_dir, file_name)
+                return sticker_path
+            continue
+        else:
+            if file_name.startswith(f"{single_sticker_id}.png"):
+                sticker_path = os.path.join(sticker_package_dir, file_name)
+                return sticker_path
+            continue
+    print(f"Sticker({sticker_package_id}): ID - {single_sticker_id} not found.")
+    return None
 
 
 if __name__ == '__main__':
