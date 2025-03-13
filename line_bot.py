@@ -12,7 +12,7 @@ from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, TextMessage, \
     ReplyMessageRequest, TemplateMessage, ConfirmTemplate, MessageAction, PushMessageRequest
 from linebot.v3.webhooks import MessageEvent, TextMessageContent, ImageMessageContent, \
-    VideoMessageContent, AudioMessageContent, StickerMessageContent
+    VideoMessageContent, AudioMessageContent, StickerMessageContent, FileMessageContent
 from pydantic import StrictStr
 
 import line_sticker_downloader
@@ -187,6 +187,24 @@ def handle_video_message(event):
                                  avatar_url=author.picture_url)
 
 
+@handler.add(MessageEvent, message=FileMessageContent)
+def handle_file_message(event):
+    with ApiClient(configuration) as api_client:
+        if event.source.type == 'user':  # Exclude user messages, only process group messages
+            return
+        line_bot_api = MessagingApi(api_client)
+        group_id = event.source.group_id
+        if group_id in sync_channels_cache.line_group_ids:
+            subscribed_info = sync_channels_cache.get_info_by_line_group_id(group_id)
+            author = line_bot_api.get_group_member_profile(group_id, event.source.user_id)
+            file_path = download_content(event.message.id, subscribed_info['folder_name'],
+                                         'file', file_name=event.message.file_name)
+            discord_webhook = SyncWebhook.from_url(subscribed_info['discord_channel_webhook'])
+            discord_webhook.send(file=File(file_path),
+                                 username=f"{author.display_name} - (Line訊息)",
+                                 avatar_url=author.picture_url)
+
+
 def push_message(line_group_id: str, message: str):
     """Push a message to the specified LINE group.
 
@@ -199,18 +217,21 @@ def push_message(line_group_id: str, message: str):
             to=line_group_id, messages=[TextMessage(text=message)]))
 
 
-def download_content(message_id: str, folder_name: str, content_type: str) -> str:
+def download_content(message_id: str, folder_name: str, content_type: str,
+                     file_name: str = None) -> str:
     """Download content from LINE.
 
     :param str message_id: Message ID from LINE.
     :param str folder_name: The name of the folder you want to save files at.
-    :param str content_type: File type, image, video, or audio.
+    :param str content_type: File type, image, video, audio or file.
+    :param str file_name: The file name you want to save as. Only used when content_type is file.
     :return str: The path of the downloaded file.
     """
     type_map = {
         'image': 'jpg',
         'video': 'mp4',
         'audio': 'm4a',
+        'file': 'Get file name from args'
     }
 
     headers = {"Authorization": f"Bearer {config['line_channel_access_token']}"}
@@ -219,7 +240,12 @@ def download_content(message_id: str, folder_name: str, content_type: str) -> st
     download_path = f"./downloads/{folder_name}/"
     if not os.path.exists(download_path):
         os.makedirs(download_path)
-    file_name = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')}.{type_map[content_type]}"
+
+    if content_type == 'file' and file_name is not None:
+        file_name = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')}_{file_name}"
+    else:
+        file_name = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')}.{type_map[content_type]}"
+
     with open(f"{download_path}{file_name}", 'wb') as fd:
         for chunk in response.iter_content():
             fd.write(chunk)
