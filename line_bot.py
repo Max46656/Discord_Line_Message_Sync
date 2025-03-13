@@ -1,5 +1,6 @@
 import datetime
 import os
+import urllib.parse
 
 import requests
 import uvicorn
@@ -12,7 +13,8 @@ from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, TextMessage, \
     ReplyMessageRequest, TemplateMessage, ConfirmTemplate, MessageAction, PushMessageRequest
 from linebot.v3.webhooks import MessageEvent, TextMessageContent, ImageMessageContent, \
-    VideoMessageContent, AudioMessageContent, StickerMessageContent, FileMessageContent
+    VideoMessageContent, AudioMessageContent, StickerMessageContent, FileMessageContent, \
+    LocationMessageContent
 from pydantic import StrictStr
 
 import line_sticker_downloader
@@ -202,6 +204,37 @@ def handle_file_message(event):
             discord_webhook = SyncWebhook.from_url(subscribed_info['discord_channel_webhook'])
             discord_webhook.send(file=File(file_path),
                                  username=f"{author.display_name} - (Line訊息)",
+                                 avatar_url=author.picture_url)
+
+
+@handler.add(MessageEvent, message=LocationMessageContent)
+def handle_location_message(event):
+    with ApiClient(configuration) as api_client:
+        if event.source.type == 'user':  # Exclude user messages, only process group messages
+            return
+        line_bot_api = MessagingApi(api_client)
+        group_id = event.source.group_id
+        if group_id in sync_channels_cache.line_group_ids:
+            subscribed_info = sync_channels_cache.get_info_by_line_group_id(group_id)
+            author = line_bot_api.get_group_member_profile(group_id, event.source.user_id)
+            location = event.message
+            if hasattr(location, 'address') and location.address:
+                encoded_address = urllib.parse.quote(location.address)
+                google_maps_link = f"https://www.google.com/maps/place/{encoded_address}"
+            else:
+                google_maps_link = (f"https://www.google.com/maps?q="
+                                    f"{location.latitude},{location.longitude}")
+
+            location_message = f"📍 {author.display_name}分享了位置訊息\n\n"
+            if hasattr(location, 'title') and location.title:
+                location_message += f"地點名稱: **{location.title}**\n"
+            if hasattr(location, 'address') and location.address:
+                location_message += f"詳細地址: [{location.address}]({google_maps_link})\n"
+            else:
+                location_message += google_maps_link
+
+            discord_webhook = SyncWebhook.from_url(subscribed_info['discord_channel_webhook'])
+            discord_webhook.send(location_message, username=f"{author.display_name} - (Line訊息)",
                                  avatar_url=author.picture_url)
 
 
