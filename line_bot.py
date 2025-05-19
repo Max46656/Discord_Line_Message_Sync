@@ -40,6 +40,21 @@ config = utils.read_config()
 webhook_url = config['webhook_url']
 
 
+def get_bot_name() -> str:
+    """Get the bot name.
+
+    :return str: The bot name.
+    """
+    with ApiClient(configuration) as api_client:
+        line_bot_api = MessagingApi(api_client)
+        profile = line_bot_api.get_bot_info()
+        return profile.display_name
+
+
+bot_name = get_bot_name()
+dc_bot_invite_link = config['discord_bot_invite_link']
+
+
 @app.post("/callback")
 async def callback(request: Request):
     """Callback function for line webhook."""
@@ -80,7 +95,7 @@ def handle_message(event):
         # Handle commands messages
         if message_received == "!ID":
             reply_message = TextMessage(text=f"Group ID: {group_id}")
-        elif message_received == "@訊息備份服務(DC) ":
+        elif message_received == f"@{bot_name} ":
             if group_id in sync_channels_cache.line_group_ids:
                 reply_message = TextMessage(text="此群組已綁定")
             else:
@@ -95,7 +110,10 @@ def handle_message(event):
                 reply_message = TemplateMessage(altText="是否完成加入 Discord 機器人？",
                                                 template=confirm_template)
         elif message_received == "獲取 Discord 備份機器人邀請連結":
-            reply_message = TextMessage(text="邀請連結")
+            if dc_bot_invite_link:
+                reply_message = TextMessage(text=dc_bot_invite_link)
+            else:
+                reply_message = TextMessage(text="架設者未公開 Discord Bot 邀請連結")
         elif message_received == "確認並開始綁定":
             group_name = line_bot_api.get_group_summary(group_id).group_name
             binding_code = utils.generate_binding_code(group_id, group_name)
