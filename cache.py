@@ -86,8 +86,13 @@ class SyncChannelsCache:
             sub_num = self.discord_channel_ids.pop(discord_channel_id, None)
         else:
             return
+
         if sub_num is not None:
-            self.cache.pop(sub_num)
+            cache_entry = self.cache.get(sub_num)
+            if cache_entry:
+                self.line_group_ids.pop(cache_entry['line_group_id'], None)
+                self.discord_channel_ids.pop(cache_entry['discord_channel_id'], None)
+                self.cache.pop(sub_num, None)
 
 
 # Create a global instance for easy importing
