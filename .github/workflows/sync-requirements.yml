@@ -5,7 +5,7 @@ on:
     paths:
       - 'pyproject.toml'
       - 'uv.lock'
-    types: [opened, synchronize, reopened]
+    types: [ opened, synchronize, reopened ]
 
 jobs:
   sync-requirements:
@@ -38,7 +38,7 @@ jobs:
       - name: Generate requirements.txt
         run: |
           echo "Generating requirements.txt from uv.lock..."
-          uv export --frozen > requirements.txt
+          uv export --no-hashes --frozen > requirements.txt
           
           # Check if requirements.txt was modified
           if git diff --quiet requirements.txt; then
@@ -71,5 +71,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: ':white_check_mark: **requirements.txt updated**\n\nGenerated from `uv.lock` using `uv export --no-hashes --frozen`'
+              body: ':white_check_mark: **requirements.txt updated**\n\nGenerated from `uv.lock` using `uv export --no-hashes --frozen > requirements.txt`'
             })
