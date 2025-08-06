@@ -10,6 +10,14 @@ from yaml import SafeLoader
 from cache import sync_channels_cache
 
 
+def graceful_exit(message=""):
+    """Exit program gracefully with a pause for user to read the message."""
+    if message:
+        print(message)
+    input("Press Enter to exit...")
+    sys.exit()
+
+
 def config_file_generator():
     """Generate the template of config file"""
     with open('config.yml', 'w', encoding="utf8") as file:
@@ -45,7 +53,8 @@ discord_bot_invite_link: ''
 """
                    )
         file.close()
-    sys.exit()
+    graceful_exit("Config file created successfully.\n"
+                  "Please fill in config.yml then restart the program!")
 
 
 def read_config():
@@ -57,7 +66,6 @@ def read_config():
     :rtype: dict
     """
     if not exists('./config.yml'):
-        print("Config file not found, create one by default.\nPlease finish filling config.yml")
         with open('config.yml', 'w', encoding="utf8"):
             config_file_generator()
 
@@ -75,12 +83,18 @@ def read_config():
                 'discord_bot_invite_link': data['discord_bot_invite_link']
             }
             file.close()
-            return config
     except (KeyError, TypeError):
-        print(
+        graceful_exit(
             "An error occurred while reading config.yml, please check if the file is corrected filled.\n"
             "If the problem can't be solved, consider delete config.yml and restart the program.\n")
-        sys.exit()
+
+    required_fields = ['webhook_url', 'webhook_port', 'line_channel_access_token',
+                       'line_channel_secret', 'discord_bot_token']
+    for field in required_fields:
+        if field not in config or not config[field]:
+            graceful_exit(f"Missing required field: {field} in config.yml")
+            sys.exit()
+    return config
 
 
 def read_sync_channels():
