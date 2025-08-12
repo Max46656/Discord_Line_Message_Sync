@@ -26,12 +26,6 @@ def config_file_generator():
 # | Made by LD               v0.1.0  |
 # ++--------------------------------++
 
-# Backend server configuration, aka the webhook server for LINE.
-# Make sure the webhook url is started with https://
-webhook_url: ''
-webhook_port: 5000
-# If you change port, make sure to change the port in your reverse proxy as well.
-
 
 # Line Channel Access Token & Secret
 # You can get it from https://developers.line.biz/console/
@@ -41,6 +35,10 @@ line_channel_secret: ''
 # Discord Bot token
 # You can get it from https://discord.com/developers/applications
 discord_bot_token: ''
+
+# Backend server configuration, aka the webhook server port for LINE.
+# If you change port, make sure to change the port in your reverse proxy(ngrok etc..) as well.
+webhook_port: 5000
 
 
 # (Optional settings)
@@ -73,11 +71,10 @@ def read_config():
         with open('config.yml', encoding="utf8") as file:
             data = yaml.load(file, Loader=SafeLoader)
             config = {
-                'webhook_url': data['webhook_url'],
-                'webhook_port': data['webhook_port'],
                 'line_channel_access_token': data['line_channel_access_token'],
                 'line_channel_secret': data['line_channel_secret'],
                 'discord_bot_token': data['discord_bot_token'],
+                'webhook_port': data['webhook_port'],
                 'bot_hosted_by': data.get('bot_hosted_by', 'PlayfunI Network'),
                 'line_bot_invite_link': data['line_bot_invite_link'],
                 'discord_bot_invite_link': data['discord_bot_invite_link']
@@ -88,8 +85,8 @@ def read_config():
             "An error occurred while reading config.yml, please check if the file is corrected filled.\n"
             "If the problem can't be solved, consider delete config.yml and restart the program.\n")
 
-    required_fields = ['webhook_url', 'webhook_port', 'line_channel_access_token',
-                       'line_channel_secret', 'discord_bot_token']
+    required_fields = ['line_channel_access_token', 'line_channel_secret',
+                       'discord_bot_token', 'webhook_port']
     for field in required_fields:
         if field not in config or not config[field]:
             graceful_exit(f"Missing required field: {field} in config.yml")

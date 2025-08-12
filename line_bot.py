@@ -36,9 +36,6 @@ config = utils.read_config()
 configuration = Configuration(access_token=config['line_channel_access_token'])
 handler = WebhookHandler(config['line_channel_secret'])
 
-config = utils.read_config()
-webhook_url = config['webhook_url']
-
 
 def get_bot_name() -> str:
     """Get the bot name.
