@@ -22,9 +22,9 @@ async def run_discord_bot():
     # Register commands
     client.tree.command(name="about", description="關於此機器人, 查看目前連動備份的服務")(about)
     client.tree.command(name="help", description="此指令會協助你使用此機器人")(help)
-    client.tree.command(name="link", description="此指令用來與Line群組綁定，並進行連動備份")(link)
+    client.tree.command(name="link", description="此指令用來使Discord與Line群組綁定，並進行連動備份")(link)
     client.tree.command(name="unlink",
-                        description="此指令用來解除與Line群組的綁定, 並取消連動備份")(unlink)
+                        description="此指令用來解除Line群組與特定Discord頻道的綁定, 並取消連動備份")(unlink)
 
     await client.start(config.get('discord_bot_token'))
 
