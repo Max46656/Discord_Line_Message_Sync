@@ -6,9 +6,13 @@ import utilities as utils
 from cache import sync_channels_cache
 from discord_bot import client, on_ready, about, help, link, unlink
 from line_bot import app as fastapi_app
+from keep_alive import keep_alive_task
 
 config = utils.read_config()
 
+async def setup_hook():
+    webhook_url = config.get('webhook_url')
+    client.loop.create_task(keep_alive_task(webhook_url))
 
 async def run_linebot():
     host_config = uvicorn.Config(fastapi_app, host="0.0.0.0", port=config['webhook_port'])
@@ -33,10 +37,13 @@ async def main():
     # Initialize the cache
     sync_channels_cache.load_all_sync_channels()
 
+    client.setup_hook = setup_hook
+
     await asyncio.gather(
         run_linebot(),
         run_discord_bot()
     )
+
 
 
 if __name__ == '__main__':

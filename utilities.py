@@ -74,6 +74,7 @@ def read_config():
                 'line_channel_access_token': data['line_channel_access_token'],
                 'line_channel_secret': data['line_channel_secret'],
                 'discord_bot_token': data['discord_bot_token'],
+                'webhook_url':data['webhook_url'],
                 'webhook_port': data['webhook_port'],
                 'bot_hosted_by': data.get('bot_hosted_by', 'PlayfunI Network'),
                 'line_bot_invite_link': data['line_bot_invite_link'],
