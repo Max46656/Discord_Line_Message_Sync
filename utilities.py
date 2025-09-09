@@ -8,7 +8,10 @@ import yaml
 from yaml import SafeLoader
 
 from cache import sync_channels_cache
+import logging
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 def graceful_exit(message=""):
     """Exit program gracefully with a pause for user to read the message."""
@@ -132,6 +135,17 @@ def add_new_sync_channel(line_group_id: str, line_group_name: str, discord_chann
         'discord_channel_name': discord_channel_name,
         'discord_channel_webhook': discord_channel_webhook
     })
+    logger.info(f"""
+    新連動設定已紀錄 {line_group_id}, json: {{
+        'sub_num': {sub_num},
+        'folder_name': {folder_name},
+        'line_group_id': {line_group_id},
+        'line_group_name': {line_group_name},
+        'discord_channel_id': {discord_channel_id},
+        'discord_channel_name': {discord_channel_name},
+        'discord_channel_webhook': {discord_channel_webhook}
+    }}
+    """)
     update_json('sync_channels.json', data)
     sync_channels_cache.add_sync_channel(sub_num, folder_name, line_group_id, line_group_name,
                                          discord_channel_id, discord_channel_name,
